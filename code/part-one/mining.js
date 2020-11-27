@@ -18,8 +18,18 @@ class MineableTransaction {
    * signer.
    */
   constructor(privateKey, recipient = null, amount) {
-    // Enter your solution here
+    this.source = signing.getPublicKey(privateKey);
+    this.recipient = recipient;
+    this.amount = amount;
 
+    if (recipient === null) {
+      this.source = null;
+      this.recipient = signing.getPublicKey(privateKey);
+    }
+
+    const data = this.source + this.recipient + this.amount;
+
+    this.signature = signing.sign(privateKey, data);
   }
 }
 
@@ -34,7 +44,10 @@ class MineableBlock extends Block {
    * become valid after it is mined.
    */
   constructor(transactions, previousHash) {
-    // Your code here
+    super(transactions, previousHash);
+    this.hash = '';
+    this.nonce = null;
+
 
   }
 }
@@ -62,7 +75,16 @@ class MineableChain extends Blockchain {
    *   This will only be used internally.
    */
   constructor() {
-    // Your code here
+    super();
+    const genesis = new MineableBlock([], null);
+    this.blocks = [genesis];
+
+    this.difficulty = 2;
+
+    this.halvings = Math.floor(this.blocks.length / 210000);
+    this.reward = (this.halvings === 0) ? 50 : 50/ this.halvings * 2;
+
+    this.mempool = [];
 
   }
 
@@ -79,6 +101,7 @@ class MineableChain extends Blockchain {
    */
   addTransaction(transaction) {
     // Your code here
+    this.mempool.push(transaction);
 
   }
 
@@ -98,7 +121,22 @@ class MineableChain extends Blockchain {
    */
   mine(privateKey) {
     // Your code here
+    let tx = new MineableTransaction(privateKey, null, this.reward);
+    this.addTransaction(tx);
+    let pendingTxs = this.mempool
+    let previousHash = this.getHeadBlock().hash;
+    let block = new MineableBlock(pendingTxs, previousHash);
 
+    let target = '0'.repeat(this.difficulty);
+    let nonce = 0;
+
+    while (block.hash.slice(0, this.difficulty) !== target) {
+      block.calculateHash(nonce);
+      nonce++
+    };
+
+    this.blocks.push(block);
+    this.mempool = [];
   }
 }
 
@@ -118,7 +156,55 @@ class MineableChain extends Blockchain {
  *     funds they don't have
  */
 const isValidMineableChain = blockchain => {
-  // Your code here
+  let uxtos = {};
+  let target = '0'.repeat(this.difficulty)
+  let blocks = blockchain.blocks.slice(1);
+
+  let blockHeight = 1;
+
+  for (let block of blocks) {
+    // console.log(block)
+    if (block.hash.slice(0, target.length) !== target || (!block.nonce)) {
+      return false;
+    }
+  }
+
+  // this.halvings = Math.floor(this.blocks.length / 210000);
+  // this.reward = (this.halvings === 0) ? 50 : 50/ this.halvings * 2;
+  for (let { transactions } of blockchain.blocks) {
+    let rewards = 0;
+    let halvings = Math.floor(blockHeight / 210000);
+    let expectedReward = (halvings === 0) ? 50 : 50/ halvings * 2;
+
+    for (let { source, recipient, amount } of transactions) {
+      if (source === null) {
+        rewards++
+        if (amount && amount !== expectedReward) {
+
+          return false;
+        }
+      }
+      if (source) {
+        uxtos[source] = uxtos[source] || 0;
+        uxtos[source] = uxtos[source] - amount;
+
+        if (uxtos[source] < 0) {
+          return false;
+        }
+      }
+
+      uxtos[recipient] = uxtos[recipient] || 0;
+      uxtos[recipient] = uxtos[recipient] + amount;
+
+      if (rewards > 1) {
+        return false;
+      }
+    }
+    blockHeight++;
+  }
+
+  return true;
+
 
 };
 
