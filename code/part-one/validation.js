@@ -12,6 +12,13 @@ const signing = require('./signing');
  */
 const isValidTransaction = transaction => {
   // Enter your solution here
+  if (transaction.amount < 0) {
+    return false;
+  }
+
+  let data = transaction.source + transaction.recipient + transaction.amount;
+
+  return signing.verify(transaction.source, data, transaction.signature);
 
 };
 
@@ -23,6 +30,20 @@ const isValidTransaction = transaction => {
  */
 const isValidBlock = block => {
   // Your code here
+  for (let tx of block.transactions) {
+    if (isValidTransaction(tx) === false) {
+      return false;
+    }
+  }
+
+  const transactionString = block.transactions.map(t => t.signature).join('');
+    const data = block.previousHash + transactionString + block.nonce;
+
+  if (block.hash !== createHash('sha512').update(data).digest('hex')) {
+    return false;
+  }
+
+  return true;
 
 };
 
@@ -39,6 +60,28 @@ const isValidBlock = block => {
 const isValidChain = blockchain => {
   // Your code here
 
+  // console.log(blockchain);
+  if (blockchain.blocks[0].previousHash !== null) {
+    return false;
+  }
+
+  for (let i = 1; i < blockchain.blocks.length; i++) {
+    let current = blockchain.blocks[i];
+    if (!isValidBlock(current)) {
+      return false;
+    }
+    if (current.previousHash !== blockchain.blocks[i - 1].hash) {
+      return false;
+    }
+    for (let tx of current.transactions) {
+      if (!isValidTransaction(tx)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+
 };
 
 /**
@@ -48,6 +91,9 @@ const isValidChain = blockchain => {
  */
 const breakChain = blockchain => {
   // Your code here
+  // console.log(blockchain);
+  blockchain.blocks[1].transactions[0].recipient = 'Derek';
+  return blockchain;
 
 };
 
